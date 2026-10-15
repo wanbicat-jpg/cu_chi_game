@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hành Trình Địa Đạo Củ Chi - Pixel Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d1f0d;
+            font-family: 'Press Start 2P', monospace;
+            user-select: none;
+            overflow: hidden;
+            color: #ffffff;
+        }
+
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+
+        /* Tối ưu hiệu ứng Canvas Pixel Art */
+        canvas {
+            image-rendering: optimizeSpeed;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: -o-crisp-edges;
+            image-rendering: pixelated;
+            -ms-interpolation-mode: nearest-neighbor;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a2e1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4a7c2a;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen bg-neutral-900">
+
+    <!-- Container Game -->
+    <div id="game-container" class="relative w-full max-w-4xl h-[600px] bg-black rounded-lg overflow-hidden border-4 border-amber-800">
+        
+        <!-- Canvas Game -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- UI Overlay: Thông tin trên màn hình -->
+        <div id="hud" class="hidden absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
+            <div class="bg-black/80 border-2 border-amber-600 p-3 rounded text-xs text-amber-200">
+                <div>TIẾN ĐỘ: <span id="hud-progress" class="text-green-400">0/5</span></div>
+                <div class="mt-1">ĐIỂM SỐ: <span id="hud-score" class="text-yellow-400">0</span></div>
+            </div>
+            <div class="bg-black/80 border-2 border-amber-600 p-3 rounded text-[10px] text-amber-100 text-right">
+                <div>[WASD/Phím mũi tên]: Di chuyển</div>
+                <div>[E]: Tương tác tư liệu</div>
+                <div>[P]: Tạm dừng</div>
+            </div>
+        </div>
+
+        <!-- Màn hình Bắt đầu (Start Screen) -->
+        <div id="start-screen" class="absolute inset-0 bg-emerald-950/95 flex flex-col items-center justify-center p-6 text-center z-10">
+            <h1 class="text-2xl md:text-3xl font-bold text-amber-400 mb-4 leading-relaxed tracking-wider">
+                HÀNH TRÌNH<br><span class="text-green-500">ĐỊA ĐẠO CỦ CHI</span>
+            </h1>
+            <p class="text-xs text-amber-100 max-w-md mb-6 leading-6">
+                Khám phá di tích lịch sử Địa đạo Củ Chi qua góc nhìn Pixel Art! Tìm kiếm các điểm tư liệu, giải đáp câu hỏi để tích lũy điểm số.
+            </p>
+            
+            <div class="bg-emerald-900/80 border-2 border-amber-600 p-4 rounded mb-6 text-left text-[11px] leading-5 text-emerald-100 max-w-md">
+                <div class="text-yellow-400 font-bold mb-2 text-center">HƯỚNG DẪN ĐIỀU KHIỂN</div>
+                <p>• <span class="text-amber-300">W, A, S, D</span> hoặc <span class="text-amber-300">Phím mũi tên</span>: Di chuyển nhân vật</p>
+                <p>• <span class="text-amber-300">Phím E</span>: Đọc tư liệu / Trả lời câu hỏi khi đến gần điểm mốc</p>
+                <p>• <span class="text-amber-300">Phím P</span>: Tạm dừng trò chơi</p>
+            </div>
+
+            <button id="btn-start" class="px-6 py-3 bg-amber-600 hover:bg-amber-500 text-black font-bold rounded border-2 border-amber-300 transition duration-200 text-sm cursor-pointer shadow-lg active:translate-y-1">
+                BẮT ĐẦU KHÁM PHÁ
+            </button>
+        </div>
+
+        <!-- Popup Modal: Tư liệu Lịch sử & Câu hỏi -->
+        <div id="info-modal" class="hidden absolute inset-0 bg-black/80 flex items-center justify-center p-4 z-20">
+            <div class="bg-amber-950 border-4 border-amber-600 p-6 rounded-lg max-w-lg w-full text-amber-100 shadow-2xl relative">
+                <h2 id="modal-title" class="text-sm font-bold text-yellow-400 mb-3 border-b border-amber-700 pb-2">TƯ LIỆU LỊCH SỬ</h2>
+                <div id="modal-body" class="text-[11px] leading-6 mb-4 max-h-48 overflow-y-auto pr-2">
+                    <!-- Nội dung tư liệu sẽ chèn vào đây -->
+                </div>
+
+                <!-- Khu vực Câu hỏi trắc nghiệm -->
+                <div id="quiz-section" class="hidden border-t border-amber-700 pt-3">
+                    <p id="quiz-question" class="text-[11px] font-bold text-amber-200 mb-3"></p>
+                    <div id="quiz-options" class="space-y-2 text-[10px]">
+                        <!-- Danh sách 4 đáp án -->
+                    </div>
+                    <div id="quiz-feedback" class="mt-3 text-[10px] font-bold hidden p-2 rounded"></div>
+                </div>
+
+                <div class="mt-4 flex justify-end">
+                    <button id="btn-close-modal" class="px-4 py-2 bg-amber-700 hover:bg-amber-600 text-amber-100 rounded text-[10px] border border-amber-400 cursor-pointer">
+                        ĐÓNG [ESC]
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Màn hình Hoàn thành (Victory Screen) -->
+        <div id="victory-screen" class="hidden absolute inset-0 bg-emerald-950/95 flex flex-col items-center justify-center p-6 text-center z-30">
+            <h2 class="text-2xl font-bold text-yellow-400 mb-2">HOÀN THÀNH XUẤT SẮC!</h2>
+            <p class="text-xs text-amber-200 mb-4">Bạn đã khám phá toàn bộ tư liệu Địa Đạo Củ Chi!</p>
+            <div class="bg-black/60 border-2 border-amber-500 p-4 rounded mb-6 text-xs text-amber-100">
+                <p>TỔNG ĐIỂM CỦA BẠN: <span id="final-score" class="text-yellow-400 font-bold text-sm">0</span> / 100</p>
+            </div>
+            <button id="btn-restart" class="px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded border-2 border-green-300 transition text-sm cursor-pointer">
+                CHƠI LẠI
+            </button>
+        </div>
+
+        <!-- Màn hình Tạm dừng -->
+        <div id="pause-screen" class="hidden absolute inset-0 bg-black/70 flex items-center justify-center z-20">
+            <div class="text-center text-amber-400 text-xl font-bold border-2 border-amber-500 bg-black/90 p-6 rounded">
+                TẠM DỪNG GAME<br>
+                <span class="text-xs text-amber-200 mt-2 block">Nhấn [P] để tiếp tục</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script Game -->
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Tắt tính năng làm mượt để giữ nét Pixel Art HD
+        ctx.imageSmoothingEnabled = false;
+
+        // Ma trận pixel của Nhân vật chính theo thiết kế chuẩn
+        const PLAYER_PIXEL_MAP = [
+            [0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0],
+            [0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0],
+            [0,0,0,0,1,1,2,2,3,3,2,2,1,1,0,0,0,0],
+            [0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0],
+            [0,0,0,0,0,1,4,4,4,4,4,4,1,0,0,0,0,0],
+            [0,0,0,0,0,1,4,1,4,4,1,4,1,0,0,0,0,0],
+            [0,0,0,0,0,1,4,4,4,4,4,4,1,0,0,0,0,0],
+            [0,0,0,0,0,0,1,4,4,4,4,1,0,0,0,0,0,0],
+            [0,0,0,0,1,1,2,2,2,2,2,2,1,1,0,0,0,0],
+            [0,0,0,1,1,2,2,2,2,2,2,2,2,1,1,0,0,0],
+            [0,0,1,1,2,2,2,2,2,2,2,2,2,2,1,1,0,0],
+            [0,1,1,4,1,2,2,2,2,2,2,2,2,1,4,1,1,0],
+            [0,1,4,4,1,2,2,2,5,2,2,2,2,1,4,4,1,0],
+            [0,0,1,1,0,1,6,6,3,6,6,6,1,0,1,1,0,0],
+            [0,0,0,0,0,1,2,2,2,2,2,2,1,0,0,0,0,0],
+            [0,0,0,0,0,1,2,2,1,1,2,2,1,0,0,0,0,0],
+            [0,0,0,0,0,1,6,6,1,1,6,6,1,0,0,0,0,0],
+            [0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0]
+        ];
+
+        const COLOR_PALETTE = {
+            0: 'transparent',
+            1: '#000000', // Viền
+            2: '#1e5325', // Áo xanh bộ đội
+            3: '#f1c40f', // Vàng cờ / khóa thắt lưng
+            4: '#e0ac69', // Mầu da
+            5: '#143819', // Xanh đậm cúc áo
+            6: '#5c3a21'  // Nâu thắt lưng & giày
+        };
+
+        // Render Sprite Sheet nhân vật ra Offscreen Canvas
+        function createPlayerSprite() {
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 18;
+            pCanvas.height = 18;
+            const pCtx = pCanvas.getContext('2d');
+            for (let r = 0; r < 18; r++) {
+                for (let c = 0; c < 18; c++) {
+                    const colorIndex = PLAYER_PIXEL_MAP[r][c];
+                    if (colorIndex !== 0) {
+                        pCtx.fillStyle = COLOR_PALETTE[colorIndex];
+                        pCtx.fillRect(c, r, 1, 1);
+                    }
+                }
+            }
+            return pCanvas;
+        }
+
+        const playerSprite = createPlayerSprite();
+
+        // Cấu hình thế giới Game
+        const WORLD_WIDTH = 2000;
+        const WORLD_HEIGHT = 1500;
+
+        let gameState = 'START'; // START, PLAYING, PAUSED, MODAL, VICTORY
+        let score = 0;
+        let exploredCount = 0;
+
+        // Vị trí người chơi
+        const player = {
+            x: 1000,
+            y: 1300,
+            size: 40,
+            speed: 4,
+            vx: 0,
+            vy: 0
+        };
+
+        // Camera
+        const camera = {
+            x: 0,
+            y: 0,
+            width: 800,
+            height: 600
+        };
+
+        // Bàn phím
+        const keys = {};
+
+        // Danh sách 5 điểm tư liệu lịch sử Củ Chi
+        const intelPoints = [
+            {
+                id: 1,
+                x: 950,
+                y: 1100,
+                title: "1. Nguồn Gốc Hình Thành",
+                text: "Địa đạo Củ Chi được khởi lập từ thời kỳ kháng chiến chống Pháp (khoảng 1946-1948) tại xã Tân Phú Trung và Phước Vĩnh An. Ban đầu là các hầm bí mật đơn lẻ nhằm cất giấu tài liệu, cán bộ, sau đó được nối liền thành hệ thống liên hoàn.",
+                question: "Địa đạo Củ Chi bắt đầu được hình thành trong khoảng thời gian nào?",
+                options: [
+                    "A. Thời kỳ kháng chiến chống Pháp (1946 - 1948)",
+                    "B. Thời kỳ kháng chiến chống Mỹ (1960 - 1965)",
+                    "C. Sau chiến dịch Hồ Chí Minh 1975",
+                    "D. Năm 1930 thành lập Đảng"
+                ],
+                correct: 0,
+                visited: false,
+                answered: false
+            },
+            {
+                id: 2,
+                x: 400,
+                y: 800,
+                title: "2. Cấu Trúc Địa Đạo",
+                text: "Hệ thống địa đạo có tổng chiều dài hơn 250km, gồm 3 tầng sâu khác nhau (tầng 1 sâu 3m, tầng 2 sâu 6m, tầng 3 sâu trên 12m). Nơi đây có đầy đủ công trình: phòng ở, bếp Hoàng Cầm, bệnh xá, kho lương thực, giếng nước.",
+                question: "Hệ thống Địa đạo Củ Chi gồm mấy tầng sâu?",
+                options: [
+                    "A. 1 tầng",
+                    "B. 2 tầng",
+                    "C. 3 tầng",
+                    "D. 5 tầng"
+                ],
+                correct: 2,
+                visited: false,
+                answered: false
+            },
+            {
+                id: 3,
+                x: 1500,
+                y: 750,
+                title: "3. Bếp Hoàng Cầm Độc Đáo",
+                text: "Bếp Hoàng Cầm là sáng chế đặc biệt trong lòng đất, có khả năng tản khói làm cho khói bay là là trên mặt đất và tan nhanh vào sương mù, giúp quân dân nấu nướng ban ngày mà không bị máy bay địch phát hiện.",
+                question: "Ưu điểm nổi bật nhất của Bếp Hoàng Cầm trong địa đạo là gì?",
+                options: [
+                    "A. Nấu ăn cực nhanh bằng điện",
+                    "B. Tản khói, tránh bị phát hiện từ trên không",
+                    "C. Tự động dập tắt lửa khi có địch",
+                    "D. Giữ nhiệt ấm suốt mùa đông"
+                ],
+                correct: 1,
+                visited: false,
+                answered: false
+            },
+            {
+                id: 4,
+                x: 800,
+                y: 400,
+                title: "4. Đời Sống Thi Đấu & Chiến Đấu",
+                text: "Trong điều kiện thiếu ánh sáng, không khí và lương thực, quân dân Củ Chi vẫn kiên cường bám trụ. Nơi đây từng là căn cứ chiến lược chỉ đạo các chiến dịch lớn, biểu tượng cho tinh thần 'Đất thép thành đồng'.",
+                question: "Danh hiệu nổi tiếng vinh danh vùng đất Củ Chi trong chiến tranh là gì?",
+                options: [
+                    "A. Thành phố Hoa Phượng Đỏ",
+                    "B. Đất thép thành đồng",
+                    "C. Thủ đô ngàn năm văn hiến",
+                    "D. Miền đất hứa"
+                ],
+                correct: 1,
+                visited: false,
+                answered: false
+            },
+            {
+                id: 5,
+                x: 1200,
+                y: 200,
+                title: "5. Giá Trị Di Tích Lịch Sử",
+                text: "Ngày nay, Địa đạo Củ Chi là Di tích quốc gia đặc biệt, thu hút đông đảo du khách trong và ngoài nước đến tham quan, học tập về truyền thống yêu nước, ý chí quật cường và sự sáng tạo độc đáo của dân tộc Việt Nam.",
+                question: "Địa đạo Củ Chi ngày nay xếp hạng di tích cấp nào?",
+                options: [
+                    "A. Di tích cấp thị xã",
+                    "B. Di tích cấp tỉnh",
+                    "C. Di tích quốc gia đặc biệt",
+                    "D. Kỳ quan thiên nhiên thế giới"
+                ],
+                correct: 2,
+                visited: false,
+                answered: false
+            }
+        ];
+
+        // Vật cản & Ranh giới (Cây cối, công trình)
+        const obstacles = [];
+
+        // Tạo cây viền xung quanh bản đồ
+        function generateWorldObjects() {
+            const treeBorderSize = 100;
+            // Ranh giới trên/dưới
+            for (let x = 0; x < WORLD_WIDTH; x += 60) {
+                obstacles.push({ x: x, y: 0, w: 60, h: treeBorderSize, type: 'tree' });
+                obstacles.push({ x: x, y: WORLD_HEIGHT - treeBorderSize, w: 60, h: treeBorderSize, type: 'tree' });
+            }
+            // Ranh giới trái/phải
+            for (let y = 0; y < WORLD_HEIGHT; y += 60) {
+                obstacles.push({ x: 0, y: y, w: treeBorderSize, h: 60, type: 'tree' });
+                obstacles.push({ x: WORLD_WIDTH - treeBorderSize, y: y, w: treeBorderSize, h: 60, type: 'tree' });
+            }
+
+            // Một số cụm cây rải rác trong rừng
+            const treeClusters = [
+                {x: 300, y: 300, w: 120, h: 120},
+                {x: 1200, y: 1000, w: 150, h: 100},
+                {x: 600, y: 1200, w: 100, h: 140},
+                {x: 1600, y: 400, w: 140, h: 140}
+            ];
+
+            treeClusters.forEach(tc => {
+                obstacles.push({ x: tc.x, y: tc.y, w: tc.w, h: tc.h, type: 'tree' });
+            });
+        }
+
+        generateWorldObjects();
+
+        // Xử lý sự kiện bàn phím
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+
+            if (e.key.toLowerCase() === 'p' && gameState !== 'START' && gameState !== 'MODAL') {
+                togglePause();
+            }
+
+            if (e.key.toLowerCase() === 'e' && gameState === 'PLAYING') {
+                checkInteract();
+            }
+
+            if (e.key === 'Escape' && gameState === 'MODAL') {
+                closeModal();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pause-screen').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pause-screen').classList.add('hidden');
+            }
+        }
+
+        // Tương tác kiểm tra điểm tư liệu
+        let currentIntel = null;
+        function checkInteract() {
+            intelPoints.forEach(intel => {
+                const dist = Math.hypot((player.x + player.size/2) - intel.x, (player.y + player.size/2) - intel.y);
+                if (dist < 60) {
+                    openModal(intel);
+                }
+            });
+        }
+
+        function openModal(intel) {
+            currentIntel = intel;
+            gameState = 'MODAL';
+            const modal = document.getElementById('info-modal');
+            document.getElementById('modal-title').innerText = intel.title;
+            document.getElementById('modal-body').innerText = intel.text;
+
+            const quizSection = document.getElementById('quiz-section');
+            const quizQuestion = document.getElementById('quiz-question');
+            const quizOptions = document.getElementById('quiz-options');
+            const quizFeedback = document.getElementById('quiz-feedback');
+
+            quizFeedback.classList.add('hidden');
+
+            if (!intel.answered) {
+                quizSection.classList.remove('hidden');
+                quizQuestion.innerText = intel.question;
+                quizOptions.innerHTML = '';
+
+                intel.options.forEach((opt, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full text-left p-2 bg-amber-900/60 hover:bg-amber-800 rounded border border-amber-700 transition";
+                    btn.innerText = opt;
+                    btn.onclick = () => handleAnswer(idx);
+                    quizOptions.appendChild(btn);
+                });
+            } else {
+                quizSection.classList.remove('hidden');
+                quizQuestion.innerText = intel.question;
+                quizOptions.innerHTML = `<p class="text-green-400">✓ Đã hoàn thành chính xác câu hỏi này!</p>`;
+            }
+
+            modal.classList.remove('hidden');
+
+            if (!intel.visited) {
+                intel.visited = true;
+                score += 10;
+                exploredCount++;
+                updateHUD();
+            }
+        }
+
+        function handleAnswer(selectedIdx) {
+            if (!currentIntel || currentIntel.answered) return;
+
+            const feedback = document.getElementById('quiz-feedback');
+            feedback.classList.remove('hidden');
+
+            if (selectedIdx === currentIntel.correct) {
+                currentIntel.answered = true;
+                score += 10;
+                updateHUD();
+                feedback.className = "mt-3 text-[10px] font-bold p-2 rounded bg-green-900/80 text-green-200 border border-green-500";
+                feedback.innerText = "Chính xác! Bạn nhận thêm +10 điểm thưởng.";
+                
+                setTimeout(() => {
+                    openModal(currentIntel); // Refresh modal state
+                    checkVictory();
+                }, 1200);
+            } else {
+                feedback.className = "mt-3 text-[10px] font-bold p-2 rounded bg-red-900/80 text-red-200 border border-red-500";
+                feedback.innerText = "Chưa chính xác. Hãy đọc kỹ lại đoạn tư liệu bên trên nhé!";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('info-modal').classList.add('hidden');
+            gameState = 'PLAYING';
+            checkVictory();
+        }
+
+        document.getElementById('btn-close-modal').onclick = closeModal;
+
+        function updateHUD() {
+            document.getElementById('hud-progress').innerText = `${exploredCount}/5`;
+            document.getElementById('hud-score').innerText = score;
+        }
+
+        function checkVictory() {
+            if (exploredCount === 5 && intelPoints.every(p => p.answered)) {
+                gameState = 'VICTORY';
+                document.getElementById('final-score').innerText = score;
+                document.getElementById('victory-screen').classList.remove('hidden');
+            }
+        }
+
+        // Cập nhật vị trí & Va chạm
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            let nextX = player.x;
+            let nextY = player.y;
+
+            if (keys['w'] || keys['arrowup']) nextY -= player.speed;
+            if (keys['s'] || keys['arrowdown']) nextY += player.speed;
+            if (keys['a'] || keys['arrowleft']) nextX -= player.speed;
+            if (keys['d'] || keys['arrowright']) nextX += player.speed;
+
+            // Xử lý va chạm vật cản
+            let collideX = false;
+            let collideY = false;
+
+            obstacles.forEach(obs => {
+                // Kiểm tra trục X
+                if (nextX < obs.x + obs.w && nextX + player.size > obs.x &&
+                    player.y < obs.y + obs.h && player.y + player.size > obs.y) {
+                    collideX = true;
+                }
+                // Kiểm tra trục Y
+                if (player.x < obs.x + obs.w && player.x + player.size > obs.x &&
+                    nextY < obs.y + obs.h && nextY + player.size > obs.y) {
+                    collideY = true;
+                }
+            });
+
+            if (!collideX) player.x = nextX;
+            if (!collideY) player.y = nextY;
+
+            // Giới hạn trong bản đồ
+            player.x = Math.max(100, Math.min(WORLD_WIDTH - 100 - player.size, player.x));
+            player.y = Math.max(100, Math.min(WORLD_HEIGHT - 100 - player.size, player.y));
+
+            // Cập nhật Camera luôn đi theo nhân vật
+            camera.x = player.x + player.size/2 - camera.width/2;
+            camera.y = player.y + player.size/2 - camera.height/2;
+
+            camera.x = Math.max(0, Math.min(WORLD_WIDTH - camera.width, camera.x));
+            camera.y = Math.max(0, Math.min(WORLD_HEIGHT - camera.height, camera.y));
+        }
+
+        // Vẽ Game Canvas
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // 1. Vẽ nền rừng / Đất dạt
+            ctx.fillStyle = '#2d5a27'; // Nền cỏ rừng xanh
+            ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+            // Vẽ các con đường mòn bạt đất nâu
+            ctx.fillStyle = '#7a5230';
+            // Đường chính nối các điểm
+            ctx.fillRect(900, 100, 100, 1300);
+            ctx.fillRect(350, 750, 1200, 80);
+
+            // 2. Vẽ cửa hầm địa đạo & các điểm tư liệu
+            intelPoints.forEach(intel => {
+                // Vẽ nắp hầm địa đạo
+                ctx.fillStyle = '#3d2514';
+                ctx.fillRect(intel.x - 25, intel.y - 25, 50, 50);
+                ctx.fillStyle = '#5c3a21';
+                ctx.fillRect(intel.x - 20, intel.y - 20, 40, 40);
+
+                // Biển hiệu tư liệu / Lá cờ
+                ctx.fillStyle = intel.visited ? '#2eb82e' : '#e6b800';
+                ctx.fillRect(intel.x - 15, intel.y - 45, 30, 20);
+                ctx.fillStyle = '#000000';
+                ctx.font = '10px "Press Start 2P"';
+                ctx.fillText(`i${intel.id}`, intel.x - 6, intel.y - 30);
+
+                // Hiệu ứng phát sáng gợi ý tương tác
+                const dist = Math.hypot((player.x + player.size/2) - intel.x, (player.y + player.size/2) - intel.y);
+                if (dist < 60) {
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(intel.x - 30, intel.y - 30, 60, 60);
+
+                    // Vẽ gợi ý nhấn phím E
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '10px "Press Start 2P"';
+                    ctx.fillText('Nhấn [E]', intel.x - 30, intel.y - 55);
+                }
+            });
+
+            // 3. Vẽ vật cản (Ranh giới cây cối)
+            obstacles.forEach(obs => {
+                if (obs.type === 'tree') {
+                    ctx.fillStyle = '#143819';
+                    ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+                    ctx.fillStyle = '#1e5325';
+                    ctx.fillRect(obs.x + 4, obs.y + 4, obs.w - 8, obs.h - 8);
+                }
+            });
+
+            // 4. Vẽ Nhân vật chính (Sprite HD)
+            ctx.drawImage(playerSprite, player.x, player.y, player.size, player.size);
+
+            ctx.restore();
+
+            // 5. Vẽ Minimap (Góc dưới bên phải)
+            drawMinimap();
+        }
+
+        function drawMinimap() {
+            const mmWidth = 140;
+            const mmHeight = 105;
+            const mmX = canvas.width - mmWidth - 15;
+            const mmY = canvas.height - mmHeight - 15;
+
+            // Khung minimap
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+            ctx.fillRect(mmX, mmY, mmWidth, mmHeight);
+            ctx.strokeStyle = '#b8860b';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mmX, mmY, mmWidth, mmHeight);
+
+            // Tỷ lệ minimap
+            const scaleX = mmWidth / WORLD_WIDTH;
+            const scaleY = mmHeight / WORLD_HEIGHT;
+
+            // Vẽ các điểm tư liệu trên minimap
+            intelPoints.forEach(intel => {
+                ctx.fillStyle = intel.visited ? '#00ff00' : '#ffff00';
+                ctx.fillRect(mmX + intel.x * scaleX - 2, mmY + intel.y * scaleY - 2, 5, 5);
+            });
+
+            // Vẽ nhân vật trên minimap
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(mmX + player.x * scaleX - 2, mmY + player.y * scaleY - 2, 6, 6);
+        }
+
+        // Vòng lặp chính của Game (Game Loop)
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Đăng ký sự kiện Nút bấm UI
+        document.getElementById('btn-start').onclick = () => {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            gameState = 'PLAYING';
+        };
+
+        document.getElementById('btn-restart').onclick = () => {
+            // Reset dữ liệu game
+            score = 0;
+            exploredCount = 0;
+            player.x = 1000;
+            player.y = 1300;
+            intelPoints.forEach(p => {
+                p.visited = false;
+                p.answered = false;
+            });
+            updateHUD();
+            document.getElementById('victory-screen').classList.add('hidden');
+            gameState = 'PLAYING';
+        };
+
+        // Khởi động Game Loop
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
